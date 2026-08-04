@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { listPostedInvoices } from "@/data/posted-invoices-store";
 
+export const dynamic = "force-dynamic";
+
 function formatAmount(amount: number): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount);
 }
