@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { listPostedInvoices } from "@/data/posted-invoices-store";
+import { isStorageConfigured, listPostedInvoices } from "@/data/posted-invoices-store";
 
 export const dynamic = "force-dynamic";
 
@@ -15,8 +15,9 @@ function formatTimestamp(value: string): string {
   return date.toLocaleString();
 }
 
-export default function PostedInvoicesPage() {
-  const invoices = listPostedInvoices();
+export default async function PostedInvoicesPage() {
+  const storageConfigured = isStorageConfigured();
+  const invoices = storageConfigured ? await listPostedInvoices() : [];
 
   return (
     <main>
@@ -28,6 +29,13 @@ export default function PostedInvoicesPage() {
         Demo-only view of invoices auto-posted by the Runbook AP workflow. This is not a real
         Workday or ERP integration.
       </p>
+
+      {!storageConfigured ? (
+        <p>
+          <strong>Storage not configured on Vercel.</strong> In the Vercel project dashboard, go to{" "}
+          <strong>Storage → Blob → Create</strong>, link it to this project, then redeploy.
+        </p>
+      ) : null}
 
       <table border={1} cellPadding={8}>
         <thead>
@@ -41,7 +49,11 @@ export default function PostedInvoicesPage() {
           </tr>
         </thead>
         <tbody>
-          {invoices.length === 0 ? (
+          {!storageConfigured ? (
+            <tr>
+              <td colSpan={6}>Configure Vercel Blob storage to persist posted invoices.</td>
+            </tr>
+          ) : invoices.length === 0 ? (
             <tr>
               <td colSpan={6}>No invoices posted yet.</td>
             </tr>

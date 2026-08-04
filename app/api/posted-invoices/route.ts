@@ -1,4 +1,4 @@
-import { addPostedInvoice, listPostedInvoices } from "@/data/posted-invoices-store";
+import { addPostedInvoice, isStorageConfigured, listPostedInvoices } from "@/data/posted-invoices-store";
 import { NextResponse } from "next/server";
 
 type PostBody = {
@@ -11,10 +11,27 @@ type PostBody = {
 };
 
 export async function GET() {
-  return NextResponse.json({ invoices: listPostedInvoices() });
+  if (!isStorageConfigured()) {
+    return NextResponse.json(
+      {
+        error: "Blob storage is not configured. Create a Vercel Blob store for this project.",
+        invoices: [],
+      },
+      { status: 503 },
+    );
+  }
+
+  return NextResponse.json({ invoices: await listPostedInvoices() });
 }
 
 export async function POST(request: Request) {
+  if (!isStorageConfigured()) {
+    return NextResponse.json(
+      { error: "Blob storage is not configured. Create a Vercel Blob store for this project." },
+      { status: 503 },
+    );
+  }
+
   let body: PostBody;
   try {
     body = (await request.json()) as PostBody;
@@ -40,10 +57,13 @@ export async function POST(request: Request) {
   }
 
   if (body.postedAt != null && Number.isNaN(Date.parse(body.postedAt))) {
-    return NextResponse.json({ error: "postedAt must be a valid ISO timestamp when provided" }, { status: 400 });
+    return NextResponse.json(
+      { error: "postedAt must be a valid ISO timestamp when provided" },
+      { status: 400 },
+    );
   }
 
-  const invoice = addPostedInvoice({
+  const invoice = await addPostedInvoice({
     vendor,
     invoiceNumber,
     jobReference,
