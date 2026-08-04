@@ -32,8 +32,10 @@ export default async function PostedInvoicesPage() {
 
       {!storageConfigured ? (
         <p>
-          <strong>Storage not configured on Vercel.</strong> In the Vercel project dashboard, go to{" "}
-          <strong>Storage → Blob → Create</strong>, link it to this project, then redeploy.
+          <strong>Storage not configured on Vercel.</strong> Link a Blob store to this project
+          (Storage → Blob → Connect) and redeploy. Vercel injects{" "}
+          <code>BLOB_STORE_ID</code> + <code>VERCEL_OIDC_TOKEN</code>, or{" "}
+          <code>BLOB_READ_WRITE_TOKEN</code>.
         </p>
       ) : null}
 

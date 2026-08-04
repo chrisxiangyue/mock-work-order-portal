@@ -55,11 +55,19 @@ async function writeBlobStore(invoices: PostedInvoice[]): Promise<void> {
   await put(BLOB_PATHNAME, JSON.stringify(invoices, null, 2), {
     access: "public",
     addRandomSuffix: false,
+    allowOverwrite: true,
   });
 }
 
 function usesBlobStorage(): boolean {
-  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    return true;
+  }
+  // Vercel Blob OIDC auth (default for newly linked stores)
+  if (process.env.BLOB_STORE_ID && process.env.VERCEL_OIDC_TOKEN) {
+    return true;
+  }
+  return false;
 }
 
 export function isStorageConfigured(): boolean {
