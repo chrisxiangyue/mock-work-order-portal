@@ -46,14 +46,20 @@ export function addPostedInvoice(input: {
   jobReference: string;
   amount: number;
   hours?: number | null;
+  postedAt?: string;
 }): PostedInvoice {
+  const postedAt =
+    input.postedAt != null && !Number.isNaN(Date.parse(input.postedAt))
+      ? new Date(input.postedAt).toISOString()
+      : new Date().toISOString();
+
   const invoice: PostedInvoice = {
     vendor: input.vendor,
     invoiceNumber: input.invoiceNumber,
     jobReference: input.jobReference,
     amount: input.amount,
     hours: input.hours ?? null,
-    postedAt: new Date().toISOString(),
+    postedAt,
   };
 
   const invoices = readStore();

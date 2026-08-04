@@ -7,6 +7,7 @@ type PostBody = {
   jobReference?: string;
   amount?: number;
   hours?: number | null;
+  postedAt?: string;
 };
 
 export async function GET() {
@@ -38,12 +39,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "hours must be a number when provided" }, { status: 400 });
   }
 
+  if (body.postedAt != null && Number.isNaN(Date.parse(body.postedAt))) {
+    return NextResponse.json({ error: "postedAt must be a valid ISO timestamp when provided" }, { status: 400 });
+  }
+
   const invoice = addPostedInvoice({
     vendor,
     invoiceNumber,
     jobReference,
     amount,
     hours,
+    postedAt: body.postedAt,
   });
 
   return NextResponse.json({ ok: true, invoice }, { status: 201 });
