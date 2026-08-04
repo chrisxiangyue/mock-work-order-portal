@@ -36,6 +36,11 @@ export default function HomePage() {
         Unknown refs (e.g. <Link href="/jobs/JOB-4040">JOB-4040</Link>) return a not-found page for
         mismatch testing.
       </p>
+
+      <p>
+        <Link href="/posted-invoices">Mock financial system (stand-in for Workday)</Link> — posted
+        invoices from matched AP runs.
+      </p>
     </main>
   );
 }

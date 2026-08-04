@@ -1,3 +1,4 @@
 node_modules
 .next
 out
+data/posted-invoices.json
