@@ -11,6 +11,20 @@ export type PostedInvoice = {
   postedAt: string;
 };
 
+export type BlobStorageDiagnostics = {
+  vercel: boolean;
+  hasBlobReadWriteToken: boolean;
+  hasBlobStoreId: boolean;
+  hasOidcToken: boolean;
+};
+
+export class StorageNotConfiguredError extends Error {
+  constructor(message = "Blob storage is not configured for this Vercel project.") {
+    super(message);
+    this.name = "StorageNotConfiguredError";
+  }
+}
+
 const BLOB_PATHNAME = "mock-posted-invoices.json";
 
 function localStorePath(): string {
@@ -36,6 +50,18 @@ function writeLocalStore(invoices: PostedInvoice[]): void {
   writeFileSync(path, `${JSON.stringify(invoices, null, 2)}\n`, "utf8");
 }
 
+function isBlobAuthError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const message = error.message.toLowerCase();
+  return (
+    message.includes("no blob credentials") ||
+    message.includes("no read-write token") ||
+    message.includes("blob_read_write_token")
+  );
+}
+
 async function readBlobStore(): Promise<PostedInvoice[]> {
   const { blobs } = await list({ prefix: BLOB_PATHNAME, limit: 1 });
   if (blobs.length === 0) {
@@ -59,34 +85,56 @@ async function writeBlobStore(invoices: PostedInvoice[]): Promise<void> {
   });
 }
 
-function usesBlobStorage(): boolean {
-  if (process.env.BLOB_READ_WRITE_TOKEN) {
-    return true;
-  }
-  // Vercel Blob OIDC auth (default for newly linked stores)
-  if (process.env.BLOB_STORE_ID && process.env.VERCEL_OIDC_TOKEN) {
-    return true;
-  }
-  return false;
+function isVercelRuntime(): boolean {
+  return process.env.VERCEL === "1";
+}
+
+export function blobStorageDiagnostics(): BlobStorageDiagnostics {
+  return {
+    vercel: isVercelRuntime(),
+    hasBlobReadWriteToken: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
+    hasBlobStoreId: Boolean(process.env.BLOB_STORE_ID),
+    hasOidcToken: Boolean(process.env.VERCEL_OIDC_TOKEN),
+  };
 }
 
 export function isStorageConfigured(): boolean {
-  return usesBlobStorage() || process.env.VERCEL !== "1";
+  if (!isVercelRuntime()) {
+    return true;
+  }
+  const diagnostics = blobStorageDiagnostics();
+  return diagnostics.hasBlobReadWriteToken || diagnostics.hasBlobStoreId;
 }
 
 async function readStore(): Promise<PostedInvoice[]> {
-  if (usesBlobStorage()) {
-    return readBlobStore();
+  if (!isVercelRuntime()) {
+    return readLocalStore();
   }
-  return readLocalStore();
+
+  try {
+    return await readBlobStore();
+  } catch (error) {
+    if (isBlobAuthError(error)) {
+      throw new StorageNotConfiguredError();
+    }
+    throw error;
+  }
 }
 
 async function writeStore(invoices: PostedInvoice[]): Promise<void> {
-  if (usesBlobStorage()) {
-    await writeBlobStore(invoices);
+  if (!isVercelRuntime()) {
+    writeLocalStore(invoices);
     return;
   }
-  writeLocalStore(invoices);
+
+  try {
+    await writeBlobStore(invoices);
+  } catch (error) {
+    if (isBlobAuthError(error)) {
+      throw new StorageNotConfiguredError();
+    }
+    throw error;
+  }
 }
 
 export async function listPostedInvoices(): Promise<PostedInvoice[]> {

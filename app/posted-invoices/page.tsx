@@ -1,5 +1,9 @@
 import Link from "next/link";
-import { isStorageConfigured, listPostedInvoices } from "@/data/posted-invoices-store";
+import {
+  blobStorageDiagnostics,
+  listPostedInvoices,
+  StorageNotConfiguredError,
+} from "@/data/posted-invoices-store";
 
 export const dynamic = "force-dynamic";
 
@@ -16,8 +20,20 @@ function formatTimestamp(value: string): string {
 }
 
 export default async function PostedInvoicesPage() {
-  const storageConfigured = isStorageConfigured();
-  const invoices = storageConfigured ? await listPostedInvoices() : [];
+  let storageConfigured = true;
+  let invoices: Awaited<ReturnType<typeof listPostedInvoices>> = [];
+
+  try {
+    invoices = await listPostedInvoices();
+  } catch (error) {
+    if (error instanceof StorageNotConfiguredError) {
+      storageConfigured = false;
+    } else {
+      throw error;
+    }
+  }
+
+  const diagnostics = blobStorageDiagnostics();
 
   return (
     <main>
@@ -32,10 +48,14 @@ export default async function PostedInvoicesPage() {
 
       {!storageConfigured ? (
         <p>
-          <strong>Storage not configured on Vercel.</strong> Link a Blob store to this project
-          (Storage → Blob → Connect) and redeploy. Vercel injects{" "}
-          <code>BLOB_STORE_ID</code> + <code>VERCEL_OIDC_TOKEN</code>, or{" "}
-          <code>BLOB_READ_WRITE_TOKEN</code>.
+          <strong>Storage not linked on Vercel.</strong> Open{" "}
+          <strong>Storage → your Blob store → Projects</strong>, connect this app, include{" "}
+          <strong>Production</strong>, redeploy. Expected env vars:{" "}
+          <code>BLOB_STORE_ID</code> or <code>BLOB_READ_WRITE_TOKEN</code>.
+          <br />
+          Diagnostics: BLOB_STORE_ID={diagnostics.hasBlobStoreId ? "yes" : "no"},{" "}
+          BLOB_READ_WRITE_TOKEN={diagnostics.hasBlobReadWriteToken ? "yes" : "no"},{" "}
+          VERCEL_OIDC_TOKEN={diagnostics.hasOidcToken ? "yes" : "no"}
         </p>
       ) : null}
 

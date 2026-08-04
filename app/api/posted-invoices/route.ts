@@ -1,4 +1,9 @@
-import { addPostedInvoice, isStorageConfigured, listPostedInvoices } from "@/data/posted-invoices-store";
+import {
+  addPostedInvoice,
+  blobStorageDiagnostics,
+  listPostedInvoices,
+  StorageNotConfiguredError,
+} from "@/data/posted-invoices-store";
 import { NextResponse } from "next/server";
 
 type PostBody = {
@@ -10,28 +15,30 @@ type PostBody = {
   postedAt?: string;
 };
 
-export async function GET() {
-  if (!isStorageConfigured()) {
-    return NextResponse.json(
-      {
-        error: "Blob storage is not configured. Create a Vercel Blob store for this project.",
-        invoices: [],
-      },
-      { status: 503 },
-    );
-  }
+function storageNotConfiguredResponse() {
+  return NextResponse.json(
+    {
+      error:
+        "Blob storage is not linked to this Vercel project. Open Storage → your Blob store → Projects, connect mock-work-order-portal, include Production, then redeploy.",
+      invoices: [],
+      diagnostics: blobStorageDiagnostics(),
+    },
+    { status: 503 },
+  );
+}
 
-  return NextResponse.json({ invoices: await listPostedInvoices() });
+export async function GET() {
+  try {
+    return NextResponse.json({ invoices: await listPostedInvoices() });
+  } catch (error) {
+    if (error instanceof StorageNotConfiguredError) {
+      return storageNotConfiguredResponse();
+    }
+    throw error;
+  }
 }
 
 export async function POST(request: Request) {
-  if (!isStorageConfigured()) {
-    return NextResponse.json(
-      { error: "Blob storage is not configured. Create a Vercel Blob store for this project." },
-      { status: 503 },
-    );
-  }
-
   let body: PostBody;
   try {
     body = (await request.json()) as PostBody;
@@ -63,14 +70,21 @@ export async function POST(request: Request) {
     );
   }
 
-  const invoice = await addPostedInvoice({
-    vendor,
-    invoiceNumber,
-    jobReference,
-    amount,
-    hours,
-    postedAt: body.postedAt,
-  });
+  try {
+    const invoice = await addPostedInvoice({
+      vendor,
+      invoiceNumber,
+      jobReference,
+      amount,
+      hours,
+      postedAt: body.postedAt,
+    });
 
-  return NextResponse.json({ ok: true, invoice }, { status: 201 });
+    return NextResponse.json({ ok: true, invoice }, { status: 201 });
+  } catch (error) {
+    if (error instanceof StorageNotConfiguredError) {
+      return storageNotConfiguredResponse();
+    }
+    throw error;
+  }
 }
